@@ -73,21 +73,18 @@
     <script>
         let customShapes = ['🔴', '🔺', '🟩'];
         const roomId = new URLSearchParams(window.location.search).get('room');
+        const API_URL = 'https://api.restful-api.dev/objects';
 
         window.onload = () => {
             if (roomId) {
-                // Fetch shapes from cloud
-                fetch(`https://dweet.io/get/latest/dweet/for/${roomId}`)
+                fetch(`${API_URL}/${roomId}`)
                 .then(r => r.json())
                 .then(data => {
-                    if (data.this === "succeeded" && data.with && data.with.length > 0) {
-                        let content = data.with[0].content;
-                        if (content.shapes) {
-                            customShapes = content.shapes;
-                            document.getElementById('icon-1').innerText = customShapes[0];
-                            document.getElementById('icon-2').innerText = customShapes[1];
-                            document.getElementById('icon-3').innerText = customShapes[2];
-                        }
+                    if (data && data.data && data.data.shapes) {
+                        customShapes = data.data.shapes;
+                        document.getElementById('icon-1').innerText = customShapes[0];
+                        document.getElementById('icon-2').innerText = customShapes[1];
+                        document.getElementById('icon-3').innerText = customShapes[2];
                     }
                 }).catch(e => console.log("Fetch shapes error", e));
             }
@@ -207,22 +204,21 @@
 
             if (roomId) {
                 document.getElementById('sync-status').innerText = "Дүнг багш руу илгээж байна... ⏳";
-                fetch(`https://dweet.io/get/latest/dweet/for/${roomId}`)
+                fetch(`${API_URL}/${roomId}`)
                 .then(r => r.json())
                 .then(data => {
                     let scores = [];
                     let shapes = customShapes;
-                    if (data.this === "succeeded" && data.with && data.with.length > 0) {
-                        let content = data.with[0].content;
-                        if (content.scores) scores = content.scores;
-                        if (content.shapes) shapes = content.shapes;
+                    if (data && data.data) {
+                        scores = data.data.scores || [];
+                        if(data.data.shapes) shapes = data.data.shapes;
                     }
                     scores.push({ name: playerName, score: score, wrong: wrongCount });
                     
-                    return fetch(`https://dweet.io/dweet/for/${roomId}`, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ scores: scores, shapes: shapes })
+                    return fetch(`${API_URL}/${roomId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: "ShapeGameRoom", data: { scores: scores, shapes: shapes } })
                     });
                 })
                 .then(() => document.getElementById('sync-status').innerText = "✅ Дүн багш руу амжилттай илгээгдлээ!")
