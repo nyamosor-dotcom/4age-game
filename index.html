@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Багшийн Удирдлага - Ирээдүйн аврагчид</title>
+    <style>
+        body { margin: 0; padding: 20px; background: #e0f7fa; font-family: 'Comic Sans MS', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .container { background: #fff; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); width: 100%; max-width: 650px; text-align: center; border: 6px solid #ab47bc; }
+        h1 { color: #7b1fa2; margin-bottom: 5px; font-size: 1.8rem; }
+        .input-group { margin: 15px 0; display: flex; gap: 10px; }
+        input[type="text"] { flex: 1; padding: 12px; border: 2px solid #ab47bc; border-radius: 10px; font-size: 1rem; color:#555; }
+        button { padding: 12px 20px; background: #ab47bc; color: white; border: none; border-radius: 10px; font-size: 1rem; cursor: pointer; font-weight: bold; }
+        button:hover { background: #8e24aa; }
+        .qr-box { margin: 15px auto; padding: 15px; background: #f3e5f5; border-radius: 15px; display: inline-block; border: 2px dashed #ab47bc; }
+        .settings-box { background: #fff9c4; padding: 15px; border-radius: 15px; border: 2px solid #fbc02d; margin-bottom: 20px; text-align: left; }
+        .setting-row { display: flex; justify-content: space-between; margin-bottom: 10px; align-items: center; font-weight:bold; color:#444;}
+        select { padding: 8px; border-radius: 8px; font-size: 1rem; border: 1px solid #ccc; font-family: inherit; }
+        .scores-box { text-align: left; background: #fff; border: 2px solid #66bb6a; border-radius: 15px; padding: 15px; }
+        .score-card { background: #e8f5e9; padding: 12px; border-radius: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; font-weight: bold; color: #2e7d32; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>👨‍🏫 Багшийн Хянах Самбар</h1>
+        <p style="color: #666; margin-bottom:10px; font-size:0.95rem;">Интернетээр гар утас болон компьютер шууд холбогдоно (Үүлэн технологи).</p>
+        
+        <div class="input-group">
+            <input type="text" id="student-url" placeholder="student.html линк">
+            <button onclick="updateUI()">QR Шинэчлэх</button>
+        </div>
+
+        <div class="qr-box">
+            <img id="qr-img" src="" alt="QR Code" width="160" height="160" style="display:block; margin: 0 auto;">
+            <p style="margin: 10px 0 0 0; font-size: 0.9rem; color: #444; font-weight:bold;">Энэ QR кодыг хүүхдүүд уншуулж тоглоно</p>
+        </div>
+
+        <div class="settings-box">
+            <h3 style="margin:0 0 10px 0; color:#f57f17;">⚙️ Унаж буй дүрсүүдийг солих</h3>
+            <div class="setting-row"><span>1-р дүрс:</span> <select id="shape1"><option value="🔴">🔴 Улаан дугуй</option><option value="🔵">🔵 Цэнхэр бөмбөг</option><option value="🟡">🟡 Шар од</option></select></div>
+            <div class="setting-row"><span>2-р дүрс:</span> <select id="shape2"><option value="🔺">🔺 Ягаан гурвалжин</option><option value="🔷">🔷 Цэнхэр ромбо</option><option value="❤️">❤️ Зүрх</option></select></div>
+            <div class="setting-row"><span>3-р дүрс:</span> <select id="shape3"><option value="🟩">🟩 Ногоон дөрвөлжин</option><option value="🟧">🟧 Улбар шар</option><option value="🟪">🟪 Нил ягаан</option></select></div>
+            <div style="text-align:right; margin-top:5px;"><button onclick="saveShapes()" style="background:#f57f17; padding:8px 15px;">Хадгалах</button></div>
+        </div>
+
+        <div class="scores-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h3 style="margin:0; color:#2e7d32;">📋 Сурагчдын дүн (Онлайн)</h3>
+                <button onclick="clearScores()" style="background:#e53935; padding: 6px 12px; font-size:0.8rem;">🧹 Цэвэрлэх</button>
+            </div>
+            <div id="scores-list" style="max-height: 180px; overflow-y: auto;">Түр хүлээнэ үү...</div>
+        </div>
+    </div>
+
+    <script>
+        // Use dweet.io for extremely reliable, free, keyless pub/sub state sync
+        let currentRoomId = localStorage.getItem('shapeGameRoomId');
+        if (!currentRoomId) {
+            currentRoomId = 'shapegame_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('shapeGameRoomId', currentRoomId);
+        }
+
+        let currentScores = [];
+        let currentShapes = ['🔴', '🔺', '🟩'];
+
+        window.onload = () => {
+            // Auto-detect the student.html URL based on teacher.html's location!
+            let autoStudentUrl = window.location.href.split('?')[0].replace('teacher.html', 'student.html');
+            if(!autoStudentUrl.endsWith('student.html')) {
+                // fallback if deployed differently
+                autoStudentUrl = window.location.origin + window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/')) + '/student.html';
+            }
+            let savedUrl = localStorage.getItem('studentGameUrl') || autoStudentUrl;
+            document.getElementById('student-url').value = savedUrl;
+            
+            // Initial sync & UI update
+            pollCloud(true); 
+            setInterval(pollCloud, 3000); // Poll every 3 seconds
+        };
+
+        function syncToCloud(alertMsg = null) {
+            fetch(`https://dweet.io/dweet/for/${currentRoomId}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ scores: currentScores, shapes: currentShapes })
+            }).then(() => {
+                if (alertMsg) alert(alertMsg);
+            }).catch(e => console.log("Sync error", e));
+        }
+
+        function pollCloud(forceUpdateUI = false) {
+            fetch(`https://dweet.io/get/latest/dweet/for/${currentRoomId}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.this === "succeeded" && data.with && data.with.length > 0) {
+                    let content = data.with[0].content;
+                    let changed = false;
+                    
+                    if (content.scores && JSON.stringify(content.scores) !== JSON.stringify(currentScores)) {
+                        currentScores = content.scores;
+                        changed = true;
+                    }
+                    if (content.shapes && JSON.stringify(content.shapes) !== JSON.stringify(currentShapes)) {
+                        currentShapes = content.shapes;
+                        changed = true;
+                    }
+                    
+                    if (changed || forceUpdateUI) updateUI();
+                } else {
+                    if (forceUpdateUI) {
+                        syncToCloud(); // Initialize empty room
+                        updateUI();
+                    }
+                }
+            }).catch(e => console.log("Poll error", e));
+        }
+
+        function updateUI() {
+            let url = document.getElementById('student-url').value.trim();
+            localStorage.setItem('studentGameUrl', url);
+            
+            let fullUrl = url + (url.includes('?') ? '&' : '?') + 'room=' + currentRoomId;
+            document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(fullUrl)}`;
+            
+            document.getElementById('shape1').value = currentShapes[0];
+            document.getElementById('shape2').value = currentShapes[1];
+            document.getElementById('shape3').value = currentShapes[2];
+
+            const list = document.getElementById('scores-list');
+            list.innerHTML = '';
+            if (currentScores.length === 0) {
+                list.innerHTML = '<div style="text-align:center; color:#888; padding:10px;">Дүн ороогүй байна</div>';
+            } else {
+                [...currentScores].reverse().forEach(s => {
+                    list.innerHTML += `<div class="score-card"><span>👤 ${s.name}</span> <span>⭐ Зөв: ${s.score}/10 | ❌ Алдсан: ${s.wrong}</span></div>`;
+                });
+            }
+        }
+
+        function saveShapes() {
+            currentShapes = [
+                document.getElementById('shape1').value,
+                document.getElementById('shape2').value,
+                document.getElementById('shape3').value
+            ];
+            updateUI();
+            syncToCloud('Дүрс шинэчлэгдлээ! Хүүхдүүдийн утсанд автоматаар солигдоно.');
+        }
+
+        function clearScores() {
+            if(confirm('Бүх хүүхдийн дүнг устгах уу?')) {
+                currentScores = [];
+                updateUI();
+                syncToCloud();
+            }
+        }
+    </script>
+</body>
+</html>
