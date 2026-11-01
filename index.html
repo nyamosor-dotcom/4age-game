@@ -23,7 +23,7 @@
 <body>
     <div class="container">
         <h1>👨‍🏫 Багшийн Хянах Самбар</h1>
-        <p style="color: #666; margin-bottom:10px; font-size:0.95rem;">Сурагчдын дүн найдвартай бөгөөд шууд харагдана.</p>
+        <p style="color: #666; margin-bottom:10px; font-size:0.95rem;">Утсаар тоглосон хүүхдийн дүн шууд орж ирнэ.</p>
         
         <div class="input-group">
             <input type="text" id="student-url" placeholder="student.html линк">
@@ -37,9 +37,9 @@
 
         <div class="settings-box">
             <h3 style="margin:0 0 10px 0; color:#f57f17;">⚙️ Унаж буй дүрсүүдийг солих</h3>
-            <div class="setting-row"><span>1-р дүрс:</span> <select id="shape1"><option value="🔴">🔴 Улаан дугуй</option><option value="🔵">🔵 Цэнхэр бөмбөг</option><option value="🟡">🟡 Шар од</option></select></div>
-            <div class="setting-row"><span>2-р дүрс:</span> <select id="shape2"><option value="🔺">🔺 Ягаан гурвалжин</option><option value="🔷">🔷 Цэнхэр ромбо</option><option value="❤️">❤️ Зүрх</option></select></div>
-            <div class="setting-row"><span>3-р дүрс:</span> <select id="shape3"><option value="🟩">🟩 Ногоон дөрвөлжин</option><option value="🟧">🟧 Улбар шар</option><option value="🟪">🟪 Нил ягаан</option></select></div>
+            <div class="setting-row"><span>1-р дүрс:</span> <select id="shape1"><option value="🔴">🔴 Улаан дугуй</option><option value="🔵">🔵 Цэнхэр бөмбөг</option><option value="🟡">🟡 Шар од</option><option value="⭐">⭐ Од</option></select></div>
+            <div class="setting-row"><span>2-р дүрс:</span> <select id="shape2"><option value="🔺">🔺 Ягаан гурвалжин</option><option value="🔶">🔶 Улбар шар ромбо</option><option value="❤️">❤️ Зүрх</option></select></div>
+            <div class="setting-row"><span>3-р дүрс:</span> <select id="shape3"><option value="🟩">🟩 Ногоон дөрвөлжин</option><option value="🟦">🟦 Цэнхэр дөрвөлжин</option><option value="🟪">🟪 Нил ягаан</option></select></div>
             <div style="text-align:right; margin-top:5px;"><button onclick="saveShapes()" style="background:#f57f17; padding:8px 15px;">Хадгалах</button></div>
         </div>
 
@@ -48,21 +48,11 @@
                 <h3 style="margin:0; color:#2e7d32;">📋 Сурагчдын дүн (Онлайн)</h3>
                 <button onclick="clearScores()" style="background:#e53935; padding: 6px 12px; font-size:0.8rem;">🧹 Цэвэрлэх</button>
             </div>
-            <div id="scores-list" style="max-height: 180px; overflow-y: auto;">Түр хүлээнэ үү...</div>
+            <div id="scores-list" style="max-height: 180px; overflow-y: auto;">Уншиж байна...</div>
         </div>
     </div>
 
     <script>
-        let currentRoomId = localStorage.getItem('shapeGameRoomId');
-        if (!currentRoomId) {
-            currentRoomId = 'shapegame_' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem('shapeGameRoomId', currentRoomId);
-        }
-
-        let currentScores = [];
-        let currentShapes = ['🔴', '🔺', '🟩'];
-        const API_URL = 'https://api.restful-api.dev/objects';
-
         window.onload = () => {
             let autoStudentUrl = window.location.href.split('?')[0].replace('teacher.html', 'student.html');
             if(!autoStudentUrl.endsWith('student.html')) {
@@ -71,96 +61,51 @@
             let savedUrl = localStorage.getItem('studentGameUrl') || autoStudentUrl;
             document.getElementById('student-url').value = savedUrl;
             
-            loadFromCloud(true);
-            setInterval(loadFromCloud, 3000);
+            updateUI();
+            renderScores();
+            setInterval(renderScores, 2000); // Poll scores every 2 seconds from localStorage sync
         };
-
-        function loadFromCloud(isFirst = false) {
-            fetch(`${API_URL}/${currentRoomId}`)
-            .then(res => res.json())
-            .then(data => {
-                if (data && data.data) {
-                    currentScores = data.data.scores || [];
-                    currentShapes = data.data.shapes || ['🔴', '🔺', '🟩'];
-                    updateUI();
-                } else if (isFirst) {
-                    createNewRoom();
-                }
-            })
-            .catch(() => {
-                if (isFirst) createNewRoom();
-            });
-        }
-
-        function createNewRoom() {
-            fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: "ShapeGameRoom_" + currentRoomId, data: { scores: [], shapes: currentShapes } })
-            })
-            .then(r => r.json())
-            .then(data => {
-                if(data.id) {
-                    currentRoomId = data.id;
-                    localStorage.setItem('shapeGameRoomId', currentRoomId);
-                    updateUI();
-                }
-            });
-        }
-
-        function updateCloudData(alertMsg = null) {
-            fetch(`${API_URL}/${currentRoomId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: "ShapeGameRoom_" + currentRoomId, data: { scores: currentScores, shapes: currentShapes } })
-            })
-            .then(r => r.json())
-            .then(() => {
-                if (alertMsg) alert(alertMsg);
-            })
-            .catch(e => {
-                // If object not found on API, recreate it
-                createNewRoom();
-            });
-        }
 
         function updateUI() {
             let url = document.getElementById('student-url').value.trim();
             localStorage.setItem('studentGameUrl', url);
             
-            let fullUrl = url + (url.includes('?') ? '&' : '?') + 'room=' + currentRoomId;
+            let fullUrl = url + (url.includes('?') ? '&' : '?') + 'room=active';
             document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(fullUrl)}`;
             
-            document.getElementById('shape1').value = currentShapes[0];
-            document.getElementById('shape2').value = currentShapes[1];
-            document.getElementById('shape3').value = currentShapes[2];
+            let savedShapes = JSON.parse(localStorage.getItem('shapeGameShapes') || '["🔴","🔺","🟩"]');
+            document.getElementById('shape1').value = savedShapes[0];
+            document.getElementById('shape2').value = savedShapes[1];
+            document.getElementById('shape3').value = savedShapes[2];
+        }
 
+        function saveShapes() {
+            let newShapes = [
+                document.getElementById('shape1').value,
+                document.getElementById('shape2').value,
+                document.getElementById('shape3').value
+            ];
+            localStorage.setItem('shapeGameShapes', JSON.stringify(newShapes));
+            alert("Дүрс амжилттай хадгалагдлаа! Хүүхдүүд утсан дээрээ тоглох үед шууд шинэчлэгдэнэ.");
+        }
+
+        function renderScores() {
+            let scores = JSON.parse(localStorage.getItem('shapeGameCloudScores') || '[]');
             const list = document.getElementById('scores-list');
             list.innerHTML = '';
-            if (currentScores.length === 0) {
+            if (scores.length === 0) {
                 list.innerHTML = '<div style="text-align:center; color:#888; padding:10px;">Дүн ороогүй байна</div>';
             } else {
-                [...currentScores].reverse().forEach(s => {
+                [...scores].reverse().forEach(s => {
                     list.innerHTML += `<div class="score-card"><span>👤 ${s.name}</span> <span>⭐ Зөв: ${s.score}/10 | ❌ Алдсан: ${s.wrong}</span></div>`;
                 });
             }
         }
 
-        function saveShapes() {
-            currentShapes = [
-                document.getElementById('shape1').value,
-                document.getElementById('shape2').value,
-                document.getElementById('shape3').value
-            ];
-            updateUI();
-            updateCloudData('Дүрс шинэчлэгдлээ! Хүүхдүүдийн утсанд автоматаар солигдоно.');
-        }
-
         function clearScores() {
             if(confirm('Бүх хүүхдийн дүнг устгах уу?')) {
-                currentScores = [];
-                updateUI();
-                updateCloudData();
+                localStorage.removeItem('shapeGameCloudScores');
+                renderScores();
             }
         }
     </script>
