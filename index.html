@@ -23,7 +23,7 @@
 <body>
     <div class="container">
         <h1>👨‍🏫 Багшийн Хянах Самбар</h1>
-        <p style="color: #666; margin-bottom:10px; font-size:0.95rem;">Интернетээр гар утас болон компьютер шууд холбогдоно (Үүлэн технологи).</p>
+        <p style="color: #666; margin-bottom:10px; font-size:0.95rem;">Сурагчдын дүн найдвартай бөгөөд шууд харагдана.</p>
         
         <div class="input-group">
             <input type="text" id="student-url" placeholder="student.html линк">
@@ -53,7 +53,6 @@
     </div>
 
     <script>
-        // Use dweet.io for extremely reliable, free, keyless pub/sub state sync
         let currentRoomId = localStorage.getItem('shapeGameRoomId');
         if (!currentRoomId) {
             currentRoomId = 'shapegame_' + Math.random().toString(36).substr(2, 9);
@@ -62,57 +61,67 @@
 
         let currentScores = [];
         let currentShapes = ['🔴', '🔺', '🟩'];
+        const API_URL = 'https://api.restful-api.dev/objects';
 
         window.onload = () => {
-            // Auto-detect the student.html URL based on teacher.html's location!
             let autoStudentUrl = window.location.href.split('?')[0].replace('teacher.html', 'student.html');
             if(!autoStudentUrl.endsWith('student.html')) {
-                // fallback if deployed differently
                 autoStudentUrl = window.location.origin + window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/')) + '/student.html';
             }
             let savedUrl = localStorage.getItem('studentGameUrl') || autoStudentUrl;
             document.getElementById('student-url').value = savedUrl;
             
-            // Initial sync & UI update
-            pollCloud(true); 
-            setInterval(pollCloud, 3000); // Poll every 3 seconds
+            loadFromCloud(true);
+            setInterval(loadFromCloud, 3000);
         };
 
-        function syncToCloud(alertMsg = null) {
-            fetch(`https://dweet.io/dweet/for/${currentRoomId}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ scores: currentScores, shapes: currentShapes })
-            }).then(() => {
-                if (alertMsg) alert(alertMsg);
-            }).catch(e => console.log("Sync error", e));
+        function loadFromCloud(isFirst = false) {
+            fetch(`${API_URL}/${currentRoomId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.data) {
+                    currentScores = data.data.scores || [];
+                    currentShapes = data.data.shapes || ['🔴', '🔺', '🟩'];
+                    updateUI();
+                } else if (isFirst) {
+                    createNewRoom();
+                }
+            })
+            .catch(() => {
+                if (isFirst) createNewRoom();
+            });
         }
 
-        function pollCloud(forceUpdateUI = false) {
-            fetch(`https://dweet.io/get/latest/dweet/for/${currentRoomId}`)
+        function createNewRoom() {
+            fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: "ShapeGameRoom_" + currentRoomId, data: { scores: [], shapes: currentShapes } })
+            })
             .then(r => r.json())
             .then(data => {
-                if (data.this === "succeeded" && data.with && data.with.length > 0) {
-                    let content = data.with[0].content;
-                    let changed = false;
-                    
-                    if (content.scores && JSON.stringify(content.scores) !== JSON.stringify(currentScores)) {
-                        currentScores = content.scores;
-                        changed = true;
-                    }
-                    if (content.shapes && JSON.stringify(content.shapes) !== JSON.stringify(currentShapes)) {
-                        currentShapes = content.shapes;
-                        changed = true;
-                    }
-                    
-                    if (changed || forceUpdateUI) updateUI();
-                } else {
-                    if (forceUpdateUI) {
-                        syncToCloud(); // Initialize empty room
-                        updateUI();
-                    }
+                if(data.id) {
+                    currentRoomId = data.id;
+                    localStorage.setItem('shapeGameRoomId', currentRoomId);
+                    updateUI();
                 }
-            }).catch(e => console.log("Poll error", e));
+            });
+        }
+
+        function updateCloudData(alertMsg = null) {
+            fetch(`${API_URL}/${currentRoomId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: "ShapeGameRoom_" + currentRoomId, data: { scores: currentScores, shapes: currentShapes } })
+            })
+            .then(r => r.json())
+            .then(() => {
+                if (alertMsg) alert(alertMsg);
+            })
+            .catch(e => {
+                // If object not found on API, recreate it
+                createNewRoom();
+            });
         }
 
         function updateUI() {
@@ -144,14 +153,14 @@
                 document.getElementById('shape3').value
             ];
             updateUI();
-            syncToCloud('Дүрс шинэчлэгдлээ! Хүүхдүүдийн утсанд автоматаар солигдоно.');
+            updateCloudData('Дүрс шинэчлэгдлээ! Хүүхдүүдийн утсанд автоматаар солигдоно.');
         }
 
         function clearScores() {
             if(confirm('Бүх хүүхдийн дүнг устгах уу?')) {
                 currentScores = [];
                 updateUI();
-                syncToCloud();
+                updateCloudData();
             }
         }
     </script>
