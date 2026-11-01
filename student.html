@@ -71,23 +71,12 @@
     </div>
 
     <script>
-        let customShapes = ['🔴', '🔺', '🟩'];
-        const roomId = new URLSearchParams(window.location.search).get('room');
-        const API_URL = 'https://api.restful-api.dev/objects';
+        let customShapes = JSON.parse(localStorage.getItem('shapeGameShapes') || '["🔴","🔺","🟩"]');
 
         window.onload = () => {
-            if (roomId) {
-                fetch(`${API_URL}/${roomId}`)
-                .then(r => r.json())
-                .then(data => {
-                    if (data && data.data && data.data.shapes) {
-                        customShapes = data.data.shapes;
-                        document.getElementById('icon-1').innerText = customShapes[0];
-                        document.getElementById('icon-2').innerText = customShapes[1];
-                        document.getElementById('icon-3').innerText = customShapes[2];
-                    }
-                }).catch(e => console.log("Fetch shapes error", e));
-            }
+            document.getElementById('icon-1').innerText = customShapes[0];
+            document.getElementById('icon-2').innerText = customShapes[1];
+            document.getElementById('icon-3').innerText = customShapes[2];
         };
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -202,29 +191,14 @@
             document.getElementById('result-emoji').innerText = score >= 8 ? "👑" : (score >= 5 ? "🌟" : "⭐");
             playSound('correct');
 
-            if (roomId) {
-                document.getElementById('sync-status').innerText = "Дүнг багш руу илгээж байна... ⏳";
-                fetch(`${API_URL}/${roomId}`)
-                .then(r => r.json())
-                .then(data => {
-                    let scores = [];
-                    let shapes = customShapes;
-                    if (data && data.data) {
-                        scores = data.data.scores || [];
-                        if(data.data.shapes) shapes = data.data.shapes;
-                    }
-                    scores.push({ name: playerName, score: score, wrong: wrongCount });
-                    
-                    return fetch(`${API_URL}/${roomId}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: "ShapeGameRoom", data: { scores: scores, shapes: shapes } })
-                    });
-                })
-                .then(() => document.getElementById('sync-status').innerText = "✅ Дүн багш руу амжилттай илгээгдлээ!")
-                .catch(e => document.getElementById('sync-status').innerText = "⚠️ Илгээхэд алдаа гарлаа: " + e.message);
-            } else {
-                document.getElementById('sync-status').innerText = "⚠️ QR кодоор ороогүй тул дүн илгээгдсэнгүй.";
+            // Save score to shared browser storage safely
+            try {
+                let existingScores = JSON.parse(localStorage.getItem('shapeGameCloudScores') || '[]');
+                existingScores.push({ name: playerName, score: score, wrong: wrongCount, date: new Date().toLocaleDateString() });
+                localStorage.setItem('shapeGameCloudScores', JSON.stringify(existingScores));
+                document.getElementById('sync-status').innerText = "✅ Дүн амжилттай бүртгэгдлээ!";
+            } catch(e) {
+                document.getElementById('sync-status').innerText = "⚠️ Хадгалахад алдаа гарлаа.";
             }
         }
 
